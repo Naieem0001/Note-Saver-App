@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Note Saver</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="galaxy.js" defer></script>
+</head>
+<body>
+    <canvas id="galaxy"></canvas>
+    <!-- Edit Modal -->
+<div id="edit-modal" class="modal-overlay">
+  <div class="modal-box">
+    <h3>✏️ Edit Note</h3>
+    <input type="text" id="edit-title" placeholder="Note Title" />
+    <textarea id="edit-content" placeholder="Write your note here..."></textarea>
+    <div class="modal-buttons">
+      <button class="cancel-btn" onclick="closeModal()">Cancel</button>
+      <button class="save-btn" onclick="submitEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+  <div class="container">
+
+    <h1>📝 Note Saver</h1>
+    <p class="subtitle">Save your thoughts instantly</p>
+
+    <div class="card">
+      <input type="text" id="title" placeholder="Note Title" />
+      <textarea id="content" placeholder="Write your note here..."></textarea>
+      <button onclick="saveNote()">Save Note</button>
+
+    <h2>Saved Notes</h2>
+<div class="search-wrapper">
+  <input type="text" id="search" placeholder="🔍 Search notes..." oninput="searchNotes()" />
+</div>
+<div id="notes-container"></div>
+
+
+
+  <script>
+  let allNotes = [];
+  let currentEditId = null;
+
+  async function fetchNotes() {
+    const response = await fetch('http://localhost:3000/api/notes');
+    allNotes = await response.json();
+    renderNotes(allNotes);
+  }
+
+  function renderNotes(notes) {
+    const container = document.getElementById('notes-container');
+    container.innerHTML = '';
+    if (notes.length === 0) {
+      container.innerHTML = '<p class="empty">No notes found.</p>';
+      return;
+    }
+    notes.forEach(note => {
+      const date = new Date(note.created_at).toLocaleString();
+      container.innerHTML += `
+        <div class="note-card" id="note-${note.id}">
+          <h3>${note.title}</h3>
+          <p>${note.content}</p>
+          <div class="note-footer">
+            <p class="date">${date}</p>
+            <div class="action-buttons">
+              <button class="edit-btn" onclick="openModal(${note.id}, '${note.title.replace(/'/g, "\\'")}', '${note.content.replace(/'/g, "\\'")}')">✏️ Edit</button>
+              <button class="delete-btn" onclick="deleteNote(${note.id})">🗑 Delete</button>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  async function saveNote() {
+    const title = document.getElementById('title').value;
+    const content = document.getElementById('content').value;
+    if (!title || !content) {
+      alert('Please fill in both fields!');
+      return;
+    }
+    await fetch('http://localhost:3000/api/notes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, content })
+    });
+    document.getElementById('title').value = '';
+    document.getElementById('content').value = '';
+    fetchNotes();
+  }
+
+  async function deleteNote(id) {
+    await fetch(`http://localhost:3000/api/notes/${id}`, {
+      method: 'DELETE'
+    });
+    fetchNotes();
+  }
+
+  function openModal(id, title, content) {
+    currentEditId = id;
+    document.getElementById('edit-title').value = title;
+    document.getElementById('edit-content').value = content;
+    document.getElementById('edit-modal').classList.add('active');
+  }
+
+  function closeModal() {
+    document.getElementById('edit-modal').classList.remove('active');
+    currentEditId = null;
+  }
+
+  async function submitEdit() {
+    const title = document.getElementById('edit-title').value;
+    const content = document.getElementById('edit-content').value;
+    if (!title || !content) {
+      alert('Please fill in both fields!');
+      return;
+    }
+    await fetch(`http://localhost:3000/api/notes/${currentEditId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, content })
+    });
+    closeModal();
+    fetchNotes();
+  }
+
+  function searchNotes() {
+    const query = document.getElementById('search').value.toLowerCase();
+    const filtered = allNotes.filter(note =>
+      note.title.toLowerCase().includes(query) ||
+      note.content.toLowerCase().includes(query)
+    );
+    renderNotes(filtered);
+  }
+
+  fetchNotes();
+</script>
+
+</body>
+</html>
